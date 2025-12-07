@@ -14,16 +14,260 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      customers: {
+        Row: {
+          created_at: string
+          first_order_at: string | null
+          first_order_source:
+            | Database["public"]["Enums"]["customer_source"]
+            | null
+          id: string
+          name: string | null
+          phone: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          first_order_at?: string | null
+          first_order_source?:
+            | Database["public"]["Enums"]["customer_source"]
+            | null
+          id?: string
+          name?: string | null
+          phone: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          first_order_at?: string | null
+          first_order_source?:
+            | Database["public"]["Enums"]["customer_source"]
+            | null
+          id?: string
+          name?: string | null
+          phone?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      manager_units: {
+        Row: {
+          created_at: string
+          id: string
+          unit_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          unit_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          unit_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manager_units_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      orders: {
+        Row: {
+          created_at: string
+          customer_id: string | null
+          customer_name: string | null
+          customer_phone: string
+          customer_source: Database["public"]["Enums"]["customer_source"]
+          customer_type: Database["public"]["Enums"]["customer_type"]
+          id: string
+          notes: string | null
+          order_number: string
+          product_name: string
+          quantity: number
+          sales_id: string
+          total_amount: number
+          unit_id: string
+          unit_price: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone: string
+          customer_source: Database["public"]["Enums"]["customer_source"]
+          customer_type: Database["public"]["Enums"]["customer_type"]
+          id?: string
+          notes?: string | null
+          order_number: string
+          product_name: string
+          quantity?: number
+          sales_id: string
+          total_amount: number
+          unit_id: string
+          unit_price: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          customer_id?: string | null
+          customer_name?: string | null
+          customer_phone?: string
+          customer_source?: Database["public"]["Enums"]["customer_source"]
+          customer_type?: Database["public"]["Enums"]["customer_type"]
+          id?: string
+          notes?: string | null
+          order_number?: string
+          product_name?: string
+          quantity?: number
+          sales_id?: string
+          total_amount?: number
+          unit_id?: string
+          unit_price?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "orders_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          email: string
+          full_name: string
+          id: string
+          unit_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          email: string
+          full_name: string
+          id: string
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          email?: string
+          full_name?: string
+          id?: string
+          unit_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_unit_id_fkey"
+            columns: ["unit_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      units: {
+        Row: {
+          code: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_access_order: {
+        Args: {
+          _order_sales_id: string
+          _order_unit_id: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      get_user_unit_id: { Args: { _user_id: string }; Returns: string }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      manages_unit: {
+        Args: { _unit_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "sales" | "unit_manager" | "general_manager"
+      customer_source:
+        | "hotline"
+        | "facebook_ads"
+        | "zalo_oa"
+        | "walkin"
+        | "referral"
+        | "returning_with_ads"
+        | "returning_without_ads"
+      customer_type: "new" | "returning"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +394,18 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["sales", "unit_manager", "general_manager"],
+      customer_source: [
+        "hotline",
+        "facebook_ads",
+        "zalo_oa",
+        "walkin",
+        "referral",
+        "returning_with_ads",
+        "returning_without_ads",
+      ],
+      customer_type: ["new", "returning"],
+    },
   },
 } as const
