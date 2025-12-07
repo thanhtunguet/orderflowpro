@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -21,8 +21,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Search, Filter, Download, Phone, ShoppingCart, Calendar, UserCheck, UserPlus } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Search, Filter, Download, Phone, ShoppingCart, Calendar, UserCheck, UserPlus, Table2, List } from 'lucide-react';
 import { CUSTOMER_SOURCE_LABELS, type CustomerSource } from '@/types/order';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface Customer {
   id: string;
@@ -102,11 +104,22 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+type ViewMode = 'table' | 'list';
+
 export default function Customers() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
   const [customerTypeFilter, setCustomerTypeFilter] = useState<'all' | 'new' | 'returning'>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
+
+  // Auto-switch to list view on mobile (only once on initial load)
+  useEffect(() => {
+    if (isMobile) {
+      setViewMode('list');
+    }
+  }, [isMobile]);
 
   const handleLogout = () => {
     navigate('/auth');
@@ -211,6 +224,82 @@ export default function Customers() {
     </div>
   );
 
+  const renderCustomerList = (customers: Customer[]) => (
+    <div className="space-y-3">
+      {customers.length === 0 ? (
+        <div className="text-center text-muted-foreground py-8">
+          Không tìm thấy khách hàng nào
+        </div>
+      ) : (
+        customers.map((customer) => (
+          <Card key={customer.id} className="border shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+            <CardContent className="p-4">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="font-semibold text-foreground">{customer.name}</h3>
+                    {customer.isReturning ? (
+                      <Badge variant="secondary" className="text-xs bg-success/10 text-success border-0">
+                        <UserCheck className="h-3 w-3 mr-1" />
+                        Khách cũ
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-xs">
+                        <UserPlus className="h-3 w-3 mr-1" />
+                        Khách mới
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
+                    <Phone className="h-3 w-3" />
+                    {customer.phone}
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-semibold text-primary text-lg">{formatCurrency(customer.totalSpent)}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    {customer.totalOrders} đơn hàng
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Nguồn:</span>
+                  <div className="mt-0.5">
+                    <Badge variant="outline" className="text-xs">
+                      {CUSTOMER_SOURCE_LABELS[customer.source]}
+                    </Badge>
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Số đơn:</span>
+                  <div className="flex items-center gap-1 font-medium mt-0.5">
+                    <ShoppingCart className="h-3 w-3 text-muted-foreground" />
+                    {customer.totalOrders}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Đơn đầu tiên:</span>
+                  <div className="flex items-center gap-1 font-medium mt-0.5">
+                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                    {new Date(customer.firstOrderDate).toLocaleDateString('vi-VN')}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Đơn gần nhất:</span>
+                  <div className="flex items-center gap-1 font-medium mt-0.5">
+                    <Calendar className="h-3 w-3 text-muted-foreground" />
+                    {new Date(customer.lastOrderDate).toLocaleDateString('vi-VN')}
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))
+      )}
+    </div>
+  );
+
   return (
     <DashboardLayout onLogout={handleLogout} userName="Nguyễn Văn A" userRole="unit_manager">
       {/* Header */}
@@ -307,10 +396,20 @@ export default function Customers() {
         </CardContent>
       </Card>
 
-      {/* Customers Table */}
+      {/* Customers Table/List */}
       <Card className="border-0 shadow-md">
         <CardHeader>
-          <CardTitle className="text-lg">Danh sách khách hàng ({filteredCustomers.length})</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Danh sách khách hàng ({filteredCustomers.length})</CardTitle>
+            <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
+              <ToggleGroupItem value="table" aria-label="Table view">
+                <Table2 className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="list" aria-label="List view">
+                <List className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="all" className="w-full">
@@ -320,13 +419,13 @@ export default function Customers() {
               <TabsTrigger value="returning">Khách mua lại ({returningCustomers.length})</TabsTrigger>
             </TabsList>
             <TabsContent value="all" className="mt-0">
-              {renderCustomerTable(filteredCustomers)}
+              {viewMode === 'table' ? renderCustomerTable(filteredCustomers) : renderCustomerList(filteredCustomers)}
             </TabsContent>
             <TabsContent value="new" className="mt-0">
-              {renderCustomerTable(newCustomers)}
+              {viewMode === 'table' ? renderCustomerTable(newCustomers) : renderCustomerList(newCustomers)}
             </TabsContent>
             <TabsContent value="returning" className="mt-0">
-              {renderCustomerTable(returningCustomers)}
+              {viewMode === 'table' ? renderCustomerTable(returningCustomers) : renderCustomerList(returningCustomers)}
             </TabsContent>
           </Tabs>
         </CardContent>

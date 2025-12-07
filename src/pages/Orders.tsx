@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
@@ -20,8 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Plus, Search, Filter, Download, Phone, Calendar } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Plus, Search, Filter, Download, Phone, Calendar, Table2, List } from 'lucide-react';
 import { CUSTOMER_SOURCE_LABELS, type CustomerSource } from '@/types/order';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface OrderRow {
   id: string;
@@ -52,10 +54,21 @@ const formatCurrency = (value: number) => {
   }).format(value);
 };
 
+type ViewMode = 'table' | 'list';
+
 export default function Orders() {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
+
+  // Auto-switch to list view on mobile (only once on initial load)
+  useEffect(() => {
+    if (isMobile) {
+      setViewMode('list');
+    }
+  }, [isMobile]);
 
   const handleLogout = () => {
     navigate('/auth');
@@ -119,69 +132,151 @@ export default function Orders() {
         </CardContent>
       </Card>
 
-      {/* Orders Table */}
+      {/* Orders Table/List */}
       <Card className="border-0 shadow-md">
         <CardHeader>
-          <CardTitle className="text-lg">Danh sách đơn hàng ({filteredOrders.length})</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">Danh sách đơn hàng ({filteredOrders.length})</CardTitle>
+            <ToggleGroup type="single" value={viewMode} onValueChange={(v) => v && setViewMode(v as ViewMode)}>
+              <ToggleGroupItem value="table" aria-label="Table view">
+                <Table2 className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="list" aria-label="List view">
+                <List className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
         </CardHeader>
         <CardContent>
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Mã đơn</TableHead>
-                  <TableHead>Khách hàng</TableHead>
-                  <TableHead>Sản phẩm</TableHead>
-                  <TableHead className="text-right">Số tiền</TableHead>
-                  <TableHead>Nguồn</TableHead>
-                  <TableHead>Sales</TableHead>
-                  <TableHead>Thời gian</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredOrders.map((order) => (
-                  <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50">
-                    <TableCell className="font-medium text-primary">{order.id}</TableCell>
-                    <TableCell>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-medium">{order.customerName}</span>
-                          {order.isReturning && (
-                            <Badge variant="secondary" className="text-xs bg-success/10 text-success border-0">
-                              Khách cũ
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
-                          <Phone className="h-3 w-3" />
-                          {order.phone}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div>
-                        <span>{order.product}</span>
-                        <span className="text-muted-foreground ml-1">x{order.quantity}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-right font-semibold">{formatCurrency(order.amount)}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="text-xs">
-                        {CUSTOMER_SOURCE_LABELS[order.source]}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{order.salesName}</TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                        <Calendar className="h-3 w-3" />
-                        {order.createdAt}
-                      </div>
-                    </TableCell>
+          {viewMode === 'table' ? (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Mã đơn</TableHead>
+                    <TableHead>Khách hàng</TableHead>
+                    <TableHead>Sản phẩm</TableHead>
+                    <TableHead className="text-right">Số tiền</TableHead>
+                    <TableHead>Nguồn</TableHead>
+                    <TableHead>Sales</TableHead>
+                    <TableHead>Thời gian</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
+                </TableHeader>
+                <TableBody>
+                  {filteredOrders.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        Không tìm thấy đơn hàng nào
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    filteredOrders.map((order) => (
+                      <TableRow key={order.id} className="cursor-pointer hover:bg-muted/50">
+                        <TableCell className="font-medium text-primary">{order.id}</TableCell>
+                        <TableCell>
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="font-medium">{order.customerName}</span>
+                              {order.isReturning && (
+                                <Badge variant="secondary" className="text-xs bg-success/10 text-success border-0">
+                                  Khách cũ
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground mt-0.5">
+                              <Phone className="h-3 w-3" />
+                              {order.phone}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <div>
+                            <span>{order.product}</span>
+                            <span className="text-muted-foreground ml-1">x{order.quantity}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right font-semibold">{formatCurrency(order.amount)}</TableCell>
+                        <TableCell>
+                          <Badge variant="outline" className="text-xs">
+                            {CUSTOMER_SOURCE_LABELS[order.source]}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">{order.salesName}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            {order.createdAt}
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {filteredOrders.length === 0 ? (
+                <div className="text-center text-muted-foreground py-8">
+                  Không tìm thấy đơn hàng nào
+                </div>
+              ) : (
+                filteredOrders.map((order) => (
+                  <Card key={order.id} className="border shadow-sm hover:shadow-md transition-shadow cursor-pointer">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-semibold text-primary">{order.id}</span>
+                            {order.isReturning && (
+                              <Badge variant="secondary" className="text-xs bg-success/10 text-success border-0">
+                                Khách cũ
+                              </Badge>
+                            )}
+                          </div>
+                          <h3 className="font-medium text-foreground mb-1">{order.customerName}</h3>
+                          <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
+                            <Phone className="h-3 w-3" />
+                            {order.phone}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="font-semibold text-primary text-lg">{formatCurrency(order.amount)}</div>
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Sản phẩm:</span>
+                          <div className="font-medium mt-0.5">
+                            {order.product} <span className="text-muted-foreground">x{order.quantity}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Nguồn:</span>
+                          <div className="mt-0.5">
+                            <Badge variant="outline" className="text-xs">
+                              {CUSTOMER_SOURCE_LABELS[order.source]}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Sales:</span>
+                          <div className="font-medium mt-0.5">{order.salesName}</div>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Thời gian:</span>
+                          <div className="flex items-center gap-1 font-medium mt-0.5">
+                            <Calendar className="h-3 w-3 text-muted-foreground" />
+                            {order.createdAt}
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </DashboardLayout>
