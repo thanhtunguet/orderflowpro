@@ -13,6 +13,8 @@ import {
   X,
   Bell,
   ChevronLeft,
+  UserCog,
+  Network,
 } from 'lucide-react';
 
 interface SidebarProps {
@@ -27,6 +29,8 @@ const menuItems = [
   { icon: Users, label: 'Khách hàng', path: '/customers' },
   { icon: BarChart3, label: 'Báo cáo', path: '/reports' },
   { icon: Bell, label: 'Thông báo', path: '/notifications' },
+  { icon: UserCog, label: 'Người dùng', path: '/users' },
+  { icon: Network, label: 'Cây tổ chức', path: '/organization' },
   { icon: Settings, label: 'Cài đặt', path: '/settings' },
 ];
 
