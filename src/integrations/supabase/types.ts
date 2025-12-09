@@ -195,6 +195,7 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          parent_id: string | null
           updated_at: string
         }
         Insert: {
@@ -202,6 +203,7 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          parent_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -209,9 +211,18 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          parent_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "units_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "units"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_roles: {
         Row: {
@@ -244,6 +255,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      can_manage_unit: {
+        Args: { _unit_id: string; _user_id: string }
+        Returns: boolean
+      }
+      get_ancestor_units: { Args: { _unit_id: string }; Returns: string[] }
+      get_descendant_units: { Args: { _unit_id: string }; Returns: string[] }
       get_user_unit_id: { Args: { _user_id: string }; Returns: string }
       has_role: {
         Args: {

@@ -38,6 +38,7 @@ import {
   UserCog,
   Building2,
   Shield,
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -45,74 +46,19 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { useUsers, useUnits, useUserStats, useUpdateUser } from '@/hooks/useUsers';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Database } from '@/integrations/supabase/types';
 
-// Mock data for demo
-const mockUsers = [
-  {
-    id: '1',
-    fullName: 'Nguyễn Văn A',
-    email: 'nguyenvana@example.com',
-    role: 'sales' as const,
-    unit: 'Đơn vị Hà Nội',
-    unitId: 'unit-1',
-    status: 'active' as const,
-    createdAt: '2024-01-15',
-  },
-  {
-    id: '2',
-    fullName: 'Trần Thị B',
-    email: 'tranthib@example.com',
-    role: 'unit_manager' as const,
-    unit: 'Đơn vị Hà Nội',
-    unitId: 'unit-1',
-    status: 'active' as const,
-    createdAt: '2024-01-10',
-  },
-  {
-    id: '3',
-    fullName: 'Lê Văn C',
-    email: 'levanc@example.com',
-    role: 'sales' as const,
-    unit: 'Đơn vị Hồ Chí Minh',
-    unitId: 'unit-2',
-    status: 'active' as const,
-    createdAt: '2024-02-01',
-  },
-  {
-    id: '4',
-    fullName: 'Phạm Thị D',
-    email: 'phamthid@example.com',
-    role: 'general_manager' as const,
-    unit: 'Tất cả đơn vị',
-    unitId: null,
-    status: 'active' as const,
-    createdAt: '2023-12-01',
-  },
-  {
-    id: '5',
-    fullName: 'Hoàng Văn E',
-    email: 'hoangvane@example.com',
-    role: 'sales' as const,
-    unit: 'Đơn vị Đà Nẵng',
-    unitId: 'unit-3',
-    status: 'inactive' as const,
-    createdAt: '2024-03-15',
-  },
-];
+type AppRole = Database['public']['Enums']['app_role'];
 
-const mockUnits = [
-  { id: 'unit-1', name: 'Đơn vị Hà Nội', code: 'HN' },
-  { id: 'unit-2', name: 'Đơn vị Hồ Chí Minh', code: 'HCM' },
-  { id: 'unit-3', name: 'Đơn vị Đà Nẵng', code: 'DN' },
-];
-
-const roleLabels: Record<string, string> = {
-  sales: 'Sales',
+const roleLabels: Record<AppRole, string> = {
+  sales: 'Nhân viên',
   unit_manager: 'Quản lý Đơn vị',
-  general_manager: 'Quản lý Cấp cao',
+  general_manager: 'Quản lý Chung',
 };
 
-const roleColors: Record<string, string> = {
+const roleColors: Record<AppRole, string> = {
   sales: 'bg-blue-500/10 text-blue-500 border-blue-500/20',
   unit_manager: 'bg-amber-500/10 text-amber-500 border-amber-500/20',
   general_manager: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20',
@@ -124,15 +70,38 @@ export default function Users() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingUser, setEditingUser] = useState<{
+    id: string;
+    full_name: string;
+    role: AppRole;
+    unit_id: string | null;
+  } | null>(null);
 
-  const filteredUsers = mockUsers.filter((user) => {
+  const { data: users, isLoading: usersLoading } = useUsers();
+  const { data: units, isLoading: unitsLoading } = useUnits();
+  const stats = useUserStats();
+  const updateUser = useUpdateUser();
+
+  const filteredUsers = users?.filter((user) => {
     const matchesSearch =
-      user.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.full_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       user.email.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
-    const matchesUnit = unitFilter === 'all' || user.unitId === unitFilter;
+    const matchesUnit = unitFilter === 'all' || user.unit_id === unitFilter;
     return matchesSearch && matchesRole && matchesUnit;
-  });
+  }) || [];
+
+  const handleUpdateUser = () => {
+    if (!editingUser) return;
+    updateUser.mutate({
+      id: editingUser.id,
+      full_name: editingUser.full_name,
+      role: editingUser.role,
+      unit_id: editingUser.unit_id,
+    }, {
+      onSuccess: () => setEditingUser(null),
+    });
+  };
 
   return (
     <DashboardLayout onLogout={() => navigate('/auth')}>
@@ -154,52 +123,20 @@ export default function Users() {
               <DialogHeader>
                 <DialogTitle>Thêm người dùng mới</DialogTitle>
                 <DialogDescription>
-                  Điền thông tin để tạo tài khoản người dùng mới
+                  Tính năng này cần được implement qua Edge Function với quyền admin.
+                  Hiện tại, người dùng mới sẽ được tạo khi họ đăng ký tài khoản.
                 </DialogDescription>
               </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="fullName">Họ và tên</Label>
-                  <Input id="fullName" placeholder="Nhập họ và tên" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" type="email" placeholder="Nhập email" />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="role">Vai trò</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn vai trò" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sales">Sales</SelectItem>
-                      <SelectItem value="unit_manager">Quản lý Đơn vị</SelectItem>
-                      <SelectItem value="general_manager">Quản lý Cấp cao</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="unit">Đơn vị</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn đơn vị" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {mockUnits.map((unit) => (
-                        <SelectItem key={unit.id} value={unit.id}>
-                          {unit.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
+              <div className="py-4">
+                <p className="text-sm text-muted-foreground">
+                  Để thêm người dùng mới, hãy mời họ đăng ký tài khoản. Sau khi đăng ký, 
+                  bạn có thể cập nhật vai trò và đơn vị của họ tại đây.
+                </p>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Hủy
+                  Đóng
                 </Button>
-                <Button onClick={() => setIsAddDialogOpen(false)}>Tạo tài khoản</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -213,10 +150,12 @@ export default function Users() {
                 <UserCog className="h-5 w-5 text-blue-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {mockUsers.filter((u) => u.role === 'sales').length}
-                </p>
-                <p className="text-sm text-muted-foreground">Nhân viên Sales</p>
+                {usersLoading ? (
+                  <Skeleton className="h-8 w-12" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{stats.sales}</p>
+                )}
+                <p className="text-sm text-muted-foreground">Nhân viên</p>
               </div>
             </div>
           </div>
@@ -226,9 +165,11 @@ export default function Users() {
                 <Building2 className="h-5 w-5 text-amber-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {mockUsers.filter((u) => u.role === 'unit_manager').length}
-                </p>
+                {usersLoading ? (
+                  <Skeleton className="h-8 w-12" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{stats.unit_manager}</p>
+                )}
                 <p className="text-sm text-muted-foreground">Quản lý Đơn vị</p>
               </div>
             </div>
@@ -239,10 +180,12 @@ export default function Users() {
                 <Shield className="h-5 w-5 text-emerald-500" />
               </div>
               <div>
-                <p className="text-2xl font-bold text-foreground">
-                  {mockUsers.filter((u) => u.role === 'general_manager').length}
-                </p>
-                <p className="text-sm text-muted-foreground">Quản lý Cấp cao</p>
+                {usersLoading ? (
+                  <Skeleton className="h-8 w-12" />
+                ) : (
+                  <p className="text-2xl font-bold text-foreground">{stats.general_manager}</p>
+                )}
+                <p className="text-sm text-muted-foreground">Quản lý Chung</p>
               </div>
             </div>
           </div>
@@ -265,9 +208,9 @@ export default function Users() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả vai trò</SelectItem>
-              <SelectItem value="sales">Sales</SelectItem>
+              <SelectItem value="sales">Nhân viên</SelectItem>
               <SelectItem value="unit_manager">Quản lý Đơn vị</SelectItem>
-              <SelectItem value="general_manager">Quản lý Cấp cao</SelectItem>
+              <SelectItem value="general_manager">Quản lý Chung</SelectItem>
             </SelectContent>
           </Select>
           <Select value={unitFilter} onValueChange={setUnitFilter}>
@@ -276,7 +219,7 @@ export default function Users() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Tất cả đơn vị</SelectItem>
-              {mockUnits.map((unit) => (
+              {units?.map((unit) => (
                 <SelectItem key={unit.id} value={unit.id}>
                   {unit.name}
                 </SelectItem>
@@ -293,72 +236,165 @@ export default function Users() {
                 <TableHead>Người dùng</TableHead>
                 <TableHead>Vai trò</TableHead>
                 <TableHead className="hidden md:table-cell">Đơn vị</TableHead>
-                <TableHead className="hidden lg:table-cell">Trạng thái</TableHead>
                 <TableHead className="hidden lg:table-cell">Ngày tạo</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredUsers.map((user) => (
-                <TableRow key={user.id} className="hover:bg-muted/30">
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                        {user.fullName.charAt(0)}
+              {usersLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="w-10 h-10 rounded-full" />
+                        <div className="space-y-1">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-48" />
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium text-foreground">{user.fullName}</p>
-                        <p className="text-sm text-muted-foreground">{user.email}</p>
-                      </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={roleColors[user.role]}>
-                      {roleLabels[user.role]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell text-muted-foreground">
-                    {user.unit}
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell">
-                    <Badge
-                      variant="outline"
-                      className={
-                        user.status === 'active'
-                          ? 'bg-success/10 text-success border-success/20'
-                          : 'bg-muted text-muted-foreground'
-                      }
-                    >
-                      {user.status === 'active' ? 'Hoạt động' : 'Vô hiệu'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden lg:table-cell text-muted-foreground">
-                    {new Date(user.createdAt).toLocaleDateString('vi-VN')}
-                  </TableCell>
-                  <TableCell>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8">
-                          <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end">
-                        <DropdownMenuItem className="gap-2">
-                          <Edit className="h-4 w-4" />
-                          Chỉnh sửa
-                        </DropdownMenuItem>
-                        <DropdownMenuItem className="gap-2 text-destructive focus:text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                          Xóa
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                    </TableCell>
+                    <TableCell><Skeleton className="h-6 w-24" /></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-4 w-20" /></TableCell>
+                    <TableCell><Skeleton className="h-8 w-8" /></TableCell>
+                  </TableRow>
+                ))
+              ) : filteredUsers.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    {users?.length === 0 
+                      ? 'Chưa có người dùng nào trong hệ thống'
+                      : 'Không tìm thấy người dùng phù hợp'}
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                filteredUsers.map((user) => (
+                  <TableRow key={user.id} className="hover:bg-muted/30">
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+                          {user.full_name.charAt(0)}
+                        </div>
+                        <div>
+                          <p className="font-medium text-foreground">{user.full_name}</p>
+                          <p className="text-sm text-muted-foreground">{user.email}</p>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={roleColors[user.role]}>
+                        {roleLabels[user.role]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">
+                      {user.unit?.name || 'Chưa phân bổ'}
+                    </TableCell>
+                    <TableCell className="hidden lg:table-cell text-muted-foreground">
+                      {new Date(user.created_at).toLocaleDateString('vi-VN')}
+                    </TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon" className="h-8 w-8">
+                            <MoreHorizontal className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem 
+                            className="gap-2"
+                            onClick={() => setEditingUser({
+                              id: user.id,
+                              full_name: user.full_name,
+                              role: user.role,
+                              unit_id: user.unit_id,
+                            })}
+                          >
+                            <Edit className="h-4 w-4" />
+                            Chỉnh sửa
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
+
+        {/* Edit User Dialog */}
+        <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Chỉnh sửa người dùng</DialogTitle>
+              <DialogDescription>
+                Cập nhật thông tin và phân quyền cho người dùng
+              </DialogDescription>
+            </DialogHeader>
+            {editingUser && (
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-fullName">Họ và tên</Label>
+                  <Input 
+                    id="edit-fullName" 
+                    value={editingUser.full_name}
+                    onChange={(e) => setEditingUser({ ...editingUser, full_name: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-role">Vai trò</Label>
+                  <Select 
+                    value={editingUser.role} 
+                    onValueChange={(value: AppRole) => setEditingUser({ ...editingUser, role: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn vai trò" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sales">Nhân viên</SelectItem>
+                      <SelectItem value="unit_manager">Quản lý Đơn vị</SelectItem>
+                      <SelectItem value="general_manager">Quản lý Chung</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-unit">Đơn vị</Label>
+                  <Select 
+                    value={editingUser.unit_id || 'none'} 
+                    onValueChange={(value) => setEditingUser({ 
+                      ...editingUser, 
+                      unit_id: value === 'none' ? null : value 
+                    })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn đơn vị" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Không thuộc đơn vị nào</SelectItem>
+                      {units?.map((unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          {unit.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            )}
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setEditingUser(null)}>
+                Hủy
+              </Button>
+              <Button 
+                onClick={handleUpdateUser} 
+                disabled={updateUser.isPending}
+              >
+                {updateUser.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Lưu thay đổi
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </DashboardLayout>
   );
