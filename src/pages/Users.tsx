@@ -28,17 +28,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
 import {
   Search,
   Plus,
   MoreHorizontal,
   Edit,
-  Trash2,
   UserCog,
   Building2,
   Shield,
-  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -46,9 +43,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useUsers, useUnits, useUserStats, useUpdateUser } from '@/hooks/useUsers';
+import { useUsers, useUnits, useUserStats, UserWithRole } from '@/hooks/useUsers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Database } from '@/integrations/supabase/types';
+import { UserEditDialog } from '@/components/users/UserEditDialog';
 
 type AppRole = Database['public']['Enums']['app_role'];
 
@@ -70,17 +68,11 @@ export default function Users() {
   const [roleFilter, setRoleFilter] = useState<string>('all');
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<{
-    id: string;
-    full_name: string;
-    role: AppRole;
-    unit_id: string | null;
-  } | null>(null);
+  const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
 
   const { data: users, isLoading: usersLoading } = useUsers();
-  const { data: units, isLoading: unitsLoading } = useUnits();
+  const { data: units } = useUnits();
   const stats = useUserStats();
-  const updateUser = useUpdateUser();
 
   const filteredUsers = users?.filter((user) => {
     const matchesSearch =
@@ -90,18 +82,6 @@ export default function Users() {
     const matchesUnit = unitFilter === 'all' || user.unit_id === unitFilter;
     return matchesSearch && matchesRole && matchesUnit;
   }) || [];
-
-  const handleUpdateUser = () => {
-    if (!editingUser) return;
-    updateUser.mutate({
-      id: editingUser.id,
-      full_name: editingUser.full_name,
-      role: editingUser.role,
-      unit_id: editingUser.unit_id,
-    }, {
-      onSuccess: () => setEditingUser(null),
-    });
-  };
 
   return (
     <DashboardLayout onLogout={() => navigate('/auth')}>
@@ -129,7 +109,7 @@ export default function Users() {
               </DialogHeader>
               <div className="py-4">
                 <p className="text-sm text-muted-foreground">
-                  Để thêm người dùng mới, hãy mời họ đăng ký tài khoản. Sau khi đăng ký, 
+                  Để thêm người dùng mới, hãy mời họ đăng ký tài khoản. Sau khi đăng ký,
                   bạn có thể cập nhật vai trò và đơn vị của họ tại đây.
                 </p>
               </div>
@@ -235,7 +215,7 @@ export default function Users() {
               <TableRow className="bg-muted/50">
                 <TableHead>Người dùng</TableHead>
                 <TableHead>Vai trò</TableHead>
-                <TableHead className="hidden md:table-cell">Đơn vị</TableHead>
+                <TableHead className="hidden md:table-cell">Đơn vị / Quản lý</TableHead>
                 <TableHead className="hidden lg:table-cell">Ngày tạo</TableHead>
                 <TableHead className="w-[50px]"></TableHead>
               </TableRow>
@@ -262,7 +242,7 @@ export default function Users() {
               ) : filteredUsers.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
-                    {users?.length === 0 
+                    {users?.length === 0
                       ? 'Chưa có người dùng nào trong hệ thống'
                       : 'Không tìm thấy người dùng phù hợp'}
                   </TableCell>
@@ -286,8 +266,29 @@ export default function Users() {
                         {roleLabels[user.role]}
                       </Badge>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                      {user.unit?.name || 'Chưa phân bổ'}
+                    <TableCell className="hidden md:table-cell">
+                      {user.role === 'general_manager' ? (
+                        <div className="flex flex-wrap gap-1">
+                          {user.managedUnits && user.managedUnits.length > 0 ? (
+                            user.managedUnits.slice(0, 2).map(unit => (
+                              <Badge key={unit.id} variant="secondary" className="text-xs">
+                                {unit.name}
+                              </Badge>
+                            ))
+                          ) : (
+                            <span className="text-muted-foreground text-sm">Chưa gán đơn vị</span>
+                          )}
+                          {user.managedUnits && user.managedUnits.length > 2 && (
+                            <Badge variant="secondary" className="text-xs">
+                              +{user.managedUnits.length - 2}
+                            </Badge>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {user.unit?.name || 'Chưa phân bổ'}
+                        </span>
+                      )}
                     </TableCell>
                     <TableCell className="hidden lg:table-cell text-muted-foreground">
                       {new Date(user.created_at).toLocaleDateString('vi-VN')}
@@ -300,14 +301,9 @@ export default function Users() {
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem 
+                          <DropdownMenuItem
                             className="gap-2"
-                            onClick={() => setEditingUser({
-                              id: user.id,
-                              full_name: user.full_name,
-                              role: user.role,
-                              unit_id: user.unit_id,
-                            })}
+                            onClick={() => setEditingUser(user)}
                           >
                             <Edit className="h-4 w-4" />
                             Chỉnh sửa
@@ -323,78 +319,11 @@ export default function Users() {
         </div>
 
         {/* Edit User Dialog */}
-        <Dialog open={!!editingUser} onOpenChange={(open) => !open && setEditingUser(null)}>
-          <DialogContent className="sm:max-w-[425px]">
-            <DialogHeader>
-              <DialogTitle>Chỉnh sửa người dùng</DialogTitle>
-              <DialogDescription>
-                Cập nhật thông tin và phân quyền cho người dùng
-              </DialogDescription>
-            </DialogHeader>
-            {editingUser && (
-              <div className="grid gap-4 py-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-fullName">Họ và tên</Label>
-                  <Input 
-                    id="edit-fullName" 
-                    value={editingUser.full_name}
-                    onChange={(e) => setEditingUser({ ...editingUser, full_name: e.target.value })}
-                  />
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-role">Vai trò</Label>
-                  <Select 
-                    value={editingUser.role} 
-                    onValueChange={(value: AppRole) => setEditingUser({ ...editingUser, role: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn vai trò" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="sales">Nhân viên</SelectItem>
-                      <SelectItem value="unit_manager">Quản lý Đơn vị</SelectItem>
-                      <SelectItem value="general_manager">Quản lý Chung</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-unit">Đơn vị</Label>
-                  <Select 
-                    value={editingUser.unit_id || 'none'} 
-                    onValueChange={(value) => setEditingUser({ 
-                      ...editingUser, 
-                      unit_id: value === 'none' ? null : value 
-                    })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Chọn đơn vị" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Không thuộc đơn vị nào</SelectItem>
-                      {units?.map((unit) => (
-                        <SelectItem key={unit.id} value={unit.id}>
-                          {unit.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            )}
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setEditingUser(null)}>
-                Hủy
-              </Button>
-              <Button 
-                onClick={handleUpdateUser} 
-                disabled={updateUser.isPending}
-              >
-                {updateUser.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Lưu thay đổi
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <UserEditDialog
+          user={editingUser}
+          open={!!editingUser}
+          onOpenChange={(open) => !open && setEditingUser(null)}
+        />
       </div>
     </DashboardLayout>
   );
