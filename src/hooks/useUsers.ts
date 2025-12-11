@@ -19,6 +19,11 @@ export interface UserWithRole {
     name: string;
     code: string;
   } | null;
+  managedUnits?: {
+    id: string;
+    name: string;
+    code: string;
+  }[];
 }
 
 export function useUsers() {
@@ -42,12 +47,33 @@ export function useUsers() {
 
       if (rolesError) throw rolesError;
 
+      // Get manager_units for general managers
+      const { data: managerUnits, error: muError } = await supabase
+        .from('manager_units')
+        .select(`
+          user_id,
+          unit:units(id, name, code)
+        `);
+
+      if (muError) throw muError;
+
       // Map roles to users
       const roleMap = new Map(roles.map(r => [r.user_id, r.role]));
+      
+      // Map managed units to users
+      const managedUnitsMap = new Map<string, { id: string; name: string; code: string }[]>();
+      managerUnits.forEach(mu => {
+        const existing = managedUnitsMap.get(mu.user_id) || [];
+        if (mu.unit) {
+          existing.push(mu.unit);
+        }
+        managedUnitsMap.set(mu.user_id, existing);
+      });
 
       return profiles.map(profile => ({
         ...profile,
         role: roleMap.get(profile.id) || 'sales',
+        managedUnits: managedUnitsMap.get(profile.id) || [],
       }));
     },
   });
@@ -96,15 +122,6 @@ export function useCreateUser() {
 
   return useMutation({
     mutationFn: async (input: CreateUserInput) => {
-      // Note: In production, user creation should be done via Edge Function 
-      // with admin privileges. For now, we'll create the profile directly
-      // assuming the user already exists or will be invited.
-      
-      // This is a simplified flow - in production you would:
-      // 1. Create user via Supabase Admin API (edge function)
-      // 2. The trigger will create profile and default role
-      // 3. Then update the role if needed
-
       throw new Error('Tính năng tạo người dùng cần được implement qua Edge Function với quyền admin');
     },
     onSuccess: () => {
@@ -155,7 +172,47 @@ export function useUpdateUser() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-tree'] });
       toast.success('Đã cập nhật thông tin người dùng');
+    },
+    onError: (error) => {
+      toast.error('Lỗi: ' + error.message);
+    },
+  });
+}
+
+// Manage units for general managers
+export function useAssignManagerUnits() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ userId, unitIds }: { userId: string; unitIds: string[] }) => {
+      // First, delete existing manager_units for this user
+      const { error: deleteError } = await supabase
+        .from('manager_units')
+        .delete()
+        .eq('user_id', userId);
+
+      if (deleteError) throw deleteError;
+
+      // Then insert new assignments
+      if (unitIds.length > 0) {
+        const { error: insertError } = await supabase
+          .from('manager_units')
+          .insert(unitIds.map(unitId => ({
+            user_id: userId,
+            unit_id: unitId,
+          })));
+
+        if (insertError) throw insertError;
+      }
+
+      return { success: true };
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-tree'] });
+      toast.success('Đã cập nhật đơn vị quản lý');
     },
     onError: (error) => {
       toast.error('Lỗi: ' + error.message);

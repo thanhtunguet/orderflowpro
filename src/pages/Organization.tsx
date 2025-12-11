@@ -17,12 +17,14 @@ import {
   User,
   Loader2,
   FolderTree,
+  UserPlus,
 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import {
   Dialog,
@@ -61,6 +63,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { AssignManagerDialog } from '@/components/organization/AssignManagerDialog';
 
 interface UnitCardProps {
   unit: UnitWithHierarchy;
@@ -70,11 +73,11 @@ interface UnitCardProps {
   onEdit: (unit: UnitWithHierarchy) => void;
   onDelete: (unitId: string) => void;
   onAddChild: (parentId: string) => void;
+  onAssignManager: (unit: UnitWithHierarchy) => void;
 }
 
-function UnitCard({ unit, isExpanded, onToggle, allUnits, onEdit, onDelete, onAddChild }: UnitCardProps) {
+function UnitCard({ unit, isExpanded, onToggle, allUnits, onEdit, onDelete, onAddChild, onAssignManager }: UnitCardProps) {
   const salesMembers = unit.members.filter(m => m.role === 'sales');
-  const expandedUnits = useState<Set<string>>(new Set())[0];
 
   return (
     <div className="space-y-2">
@@ -117,10 +120,15 @@ function UnitCard({ unit, isExpanded, onToggle, allUnits, onEdit, onDelete, onAd
                   <Edit className="h-4 w-4" />
                   Chỉnh sửa đơn vị
                 </DropdownMenuItem>
+                <DropdownMenuItem className="gap-2" onClick={() => onAssignManager(unit)}>
+                  <UserPlus className="h-4 w-4" />
+                  Gán quản lý
+                </DropdownMenuItem>
                 <DropdownMenuItem className="gap-2" onClick={() => onAddChild(unit.id)}>
                   <FolderTree className="h-4 w-4" />
                   Thêm đơn vị con
                 </DropdownMenuItem>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem 
                   className="gap-2 text-destructive focus:text-destructive"
                   onClick={() => onDelete(unit.id)}
@@ -216,6 +224,7 @@ function UnitCard({ unit, isExpanded, onToggle, allUnits, onEdit, onDelete, onAd
               onEdit={onEdit}
               onDelete={onDelete}
               onAddChild={onAddChild}
+              onAssignManager={onAssignManager}
             />
           ))}
         </div>
@@ -229,7 +238,8 @@ function UnitCardRecursive({
   allUnits, 
   onEdit, 
   onDelete, 
-  onAddChild 
+  onAddChild,
+  onAssignManager,
 }: Omit<UnitCardProps, 'isExpanded' | 'onToggle'>) {
   const [isExpanded, setIsExpanded] = useState(false);
   
@@ -242,6 +252,7 @@ function UnitCardRecursive({
       onEdit={onEdit}
       onDelete={onDelete}
       onAddChild={onAddChild}
+      onAssignManager={onAssignManager}
     />
   );
 }
@@ -253,6 +264,7 @@ export default function Organization() {
   const [newUnit, setNewUnit] = useState({ name: '', code: '', parent_id: '' });
   const [editingUnit, setEditingUnit] = useState<UnitWithHierarchy | null>(null);
   const [deletingUnitId, setDeletingUnitId] = useState<string | null>(null);
+  const [assigningManagerUnit, setAssigningManagerUnit] = useState<UnitWithHierarchy | null>(null);
 
   const { data: orgData, isLoading } = useOrganizationTree();
   const stats = useOrganizationStats();
@@ -551,6 +563,7 @@ export default function Organization() {
                     onEdit={setEditingUnit}
                     onDelete={setDeletingUnitId}
                     onAddChild={handleAddChild}
+                    onAssignManager={setAssigningManagerUnit}
                   />
                 ))}
               </div>
@@ -624,6 +637,13 @@ export default function Organization() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+
+        {/* Assign Manager Dialog */}
+        <AssignManagerDialog
+          unit={assigningManagerUnit}
+          open={!!assigningManagerUnit}
+          onOpenChange={(open) => !open && setAssigningManagerUnit(null)}
+        />
       </div>
     </DashboardLayout>
   );
