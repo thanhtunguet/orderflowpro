@@ -122,14 +122,28 @@ export function useCreateUser() {
 
   return useMutation({
     mutationFn: async (input: CreateUserInput) => {
-      throw new Error('Tính năng tạo người dùng cần được implement qua Edge Function với quyền admin');
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: {
+          action: 'create',
+          email: input.email,
+          password: input.password,
+          full_name: input.full_name,
+          role: input.role,
+          unit_id: input.unit_id,
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-tree'] });
       toast.success('Đã tạo người dùng mới');
     },
     onError: (error) => {
-      toast.error(error.message);
+      toast.error('Lỗi: ' + error.message);
     },
   });
 }
@@ -146,34 +160,51 @@ export function useUpdateUser() {
 
   return useMutation({
     mutationFn: async (input: UpdateUserInput) => {
-      const { id, role, ...profileData } = input;
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: {
+          action: 'update',
+          user_id: input.id,
+          full_name: input.full_name,
+          unit_id: input.unit_id,
+          role: input.role,
+        },
+      });
 
-      // Update profile if there are profile fields to update
-      if (Object.keys(profileData).length > 0) {
-        const { error: profileError } = await supabase
-          .from('profiles')
-          .update(profileData)
-          .eq('id', id);
-
-        if (profileError) throw profileError;
-      }
-
-      // Update role if provided
-      if (role) {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .update({ role })
-          .eq('user_id', id);
-
-        if (roleError) throw roleError;
-      }
-
-      return { success: true };
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });
       queryClient.invalidateQueries({ queryKey: ['organization-tree'] });
       toast.success('Đã cập nhật thông tin người dùng');
+    },
+    onError: (error) => {
+      toast.error('Lỗi: ' + error.message);
+    },
+  });
+}
+
+export function useDeleteUser() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (userId: string) => {
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: {
+          action: 'delete',
+          user_id: userId,
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      queryClient.invalidateQueries({ queryKey: ['organization-tree'] });
+      toast.success('Đã xóa người dùng');
     },
     onError: (error) => {
       toast.error('Lỗi: ' + error.message);
@@ -187,27 +218,17 @@ export function useAssignManagerUnits() {
 
   return useMutation({
     mutationFn: async ({ userId, unitIds }: { userId: string; unitIds: string[] }) => {
-      // First, delete existing manager_units for this user
-      const { error: deleteError } = await supabase
-        .from('manager_units')
-        .delete()
-        .eq('user_id', userId);
+      const { data, error } = await supabase.functions.invoke('manage-users', {
+        body: {
+          action: 'assign_manager_units',
+          user_id: userId,
+          unit_ids: unitIds,
+        },
+      });
 
-      if (deleteError) throw deleteError;
-
-      // Then insert new assignments
-      if (unitIds.length > 0) {
-        const { error: insertError } = await supabase
-          .from('manager_units')
-          .insert(unitIds.map(unitId => ({
-            user_id: userId,
-            unit_id: unitId,
-          })));
-
-        if (insertError) throw insertError;
-      }
-
-      return { success: true };
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['users'] });

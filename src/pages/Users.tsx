@@ -4,6 +4,7 @@ import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import {
   Table,
   TableBody,
@@ -22,6 +23,16 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog';
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -33,17 +44,20 @@ import {
   Plus,
   MoreHorizontal,
   Edit,
+  Trash2,
   UserCog,
   Building2,
   Shield,
+  Loader2,
 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { useUsers, useUnits, useUserStats, UserWithRole } from '@/hooks/useUsers';
+import { useUsers, useUnits, useUserStats, useCreateUser, useDeleteUser, UserWithRole } from '@/hooks/useUsers';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Database } from '@/integrations/supabase/types';
 import { UserEditDialog } from '@/components/users/UserEditDialog';
@@ -69,10 +83,20 @@ export default function Users() {
   const [unitFilter, setUnitFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<UserWithRole | null>(null);
+  const [deletingUserId, setDeletingUserId] = useState<string | null>(null);
+  const [newUser, setNewUser] = useState({
+    email: '',
+    password: '',
+    full_name: '',
+    role: 'sales' as AppRole,
+    unit_id: null as string | null,
+  });
 
   const { data: users, isLoading: usersLoading } = useUsers();
   const { data: units } = useUnits();
   const stats = useUserStats();
+  const createUser = useCreateUser();
+  const deleteUser = useDeleteUser();
 
   const filteredUsers = users?.filter((user) => {
     const matchesSearch =
@@ -82,6 +106,22 @@ export default function Users() {
     const matchesUnit = unitFilter === 'all' || user.unit_id === unitFilter;
     return matchesSearch && matchesRole && matchesUnit;
   }) || [];
+
+  const handleCreateUser = () => {
+    createUser.mutate(newUser, {
+      onSuccess: () => {
+        setIsAddDialogOpen(false);
+        setNewUser({ email: '', password: '', full_name: '', role: 'sales', unit_id: null });
+      },
+    });
+  };
+
+  const handleDeleteUser = () => {
+    if (!deletingUserId) return;
+    deleteUser.mutate(deletingUserId, {
+      onSuccess: () => setDeletingUserId(null),
+    });
+  };
 
   return (
     <DashboardLayout onLogout={() => navigate('/auth')}>
@@ -103,19 +143,85 @@ export default function Users() {
               <DialogHeader>
                 <DialogTitle>Thêm người dùng mới</DialogTitle>
                 <DialogDescription>
-                  Tính năng này cần được implement qua Edge Function với quyền admin.
-                  Hiện tại, người dùng mới sẽ được tạo khi họ đăng ký tài khoản.
+                  Tạo tài khoản mới cho người dùng trong hệ thống
                 </DialogDescription>
               </DialogHeader>
-              <div className="py-4">
-                <p className="text-sm text-muted-foreground">
-                  Để thêm người dùng mới, hãy mời họ đăng ký tài khoản. Sau khi đăng ký,
-                  bạn có thể cập nhật vai trò và đơn vị của họ tại đây.
-                </p>
+              <div className="grid gap-4 py-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="new-email">Email</Label>
+                  <Input
+                    id="new-email"
+                    type="email"
+                    placeholder="email@example.com"
+                    value={newUser.email}
+                    onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="new-password">Mật khẩu</Label>
+                  <Input
+                    id="new-password"
+                    type="password"
+                    placeholder="Nhập mật khẩu"
+                    value={newUser.password}
+                    onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="new-fullname">Họ và tên</Label>
+                  <Input
+                    id="new-fullname"
+                    placeholder="Nguyễn Văn A"
+                    value={newUser.full_name}
+                    onChange={(e) => setNewUser({ ...newUser, full_name: e.target.value })}
+                  />
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="new-role">Vai trò</Label>
+                  <Select
+                    value={newUser.role}
+                    onValueChange={(value: AppRole) => setNewUser({ ...newUser, role: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn vai trò" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sales">Nhân viên</SelectItem>
+                      <SelectItem value="unit_manager">Quản lý Đơn vị</SelectItem>
+                      <SelectItem value="general_manager">Quản lý Chung</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="new-unit">Đơn vị</Label>
+                  <Select
+                    value={newUser.unit_id || 'none'}
+                    onValueChange={(value) => setNewUser({ ...newUser, unit_id: value === 'none' ? null : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Chọn đơn vị" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Không thuộc đơn vị nào</SelectItem>
+                      {units?.map((unit) => (
+                        <SelectItem key={unit.id} value={unit.id}>
+                          {unit.name} ({unit.code})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
-                  Đóng
+                  Hủy
+                </Button>
+                <Button
+                  onClick={handleCreateUser}
+                  disabled={!newUser.email || !newUser.password || !newUser.full_name || createUser.isPending}
+                >
+                  {createUser.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Tạo người dùng
                 </Button>
               </DialogFooter>
             </DialogContent>
@@ -308,6 +414,14 @@ export default function Users() {
                             <Edit className="h-4 w-4" />
                             Chỉnh sửa
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            className="gap-2 text-destructive focus:text-destructive"
+                            onClick={() => setDeletingUserId(user.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                            Xóa người dùng
+                          </DropdownMenuItem>
                         </DropdownMenuContent>
                       </DropdownMenu>
                     </TableCell>
@@ -324,6 +438,29 @@ export default function Users() {
           open={!!editingUser}
           onOpenChange={(open) => !open && setEditingUser(null)}
         />
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={!!deletingUserId} onOpenChange={(open) => !open && setDeletingUserId(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Xác nhận xóa người dùng</AlertDialogTitle>
+              <AlertDialogDescription>
+                Bạn có chắc chắn muốn xóa người dùng này? Hành động này không thể hoàn tác.
+                Tất cả dữ liệu liên quan đến người dùng này sẽ bị xóa.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Hủy</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleDeleteUser}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              >
+                {deleteUser.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Xóa người dùng
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </DashboardLayout>
   );

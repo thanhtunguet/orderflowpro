@@ -94,8 +94,6 @@ export function useOrganizationTree() {
         .map(r => r.user_id);
 
       // Build unit hierarchy
-      const unitMap = new Map(units.map(u => [u.id, u]));
-
       const buildHierarchy = (parentId: string | null, level: number): UnitWithHierarchy[] => {
         return units
           .filter(u => u.parent_id === parentId)
@@ -149,18 +147,18 @@ export function useCreateUnit() {
 
   return useMutation({
     mutationFn: async (input: CreateUnitInput) => {
-      const { data, error } = await supabase
-        .from('units')
-        .insert({
+      const { data, error } = await supabase.functions.invoke('manage-units', {
+        body: {
+          action: 'create',
           name: input.name,
           code: input.code,
           parent_id: input.parent_id || null,
-        })
-        .select()
-        .single();
+        },
+      });
 
       if (error) throw error;
-      return data;
+      if (data.error) throw new Error(data.error);
+      return data.unit;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization-tree'] });
@@ -185,16 +183,19 @@ export function useUpdateUnit() {
 
   return useMutation({
     mutationFn: async (input: UpdateUnitInput) => {
-      const { id, ...updateData } = input;
-      const { data, error } = await supabase
-        .from('units')
-        .update(updateData)
-        .eq('id', id)
-        .select()
-        .single();
+      const { data, error } = await supabase.functions.invoke('manage-units', {
+        body: {
+          action: 'update',
+          unit_id: input.id,
+          name: input.name,
+          code: input.code,
+          parent_id: input.parent_id,
+        },
+      });
 
       if (error) throw error;
-      return data;
+      if (data.error) throw new Error(data.error);
+      return data.unit;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization-tree'] });
@@ -212,17 +213,49 @@ export function useDeleteUnit() {
 
   return useMutation({
     mutationFn: async (unitId: string) => {
-      const { error } = await supabase
-        .from('units')
-        .delete()
-        .eq('id', unitId);
+      const { data, error } = await supabase.functions.invoke('manage-units', {
+        body: {
+          action: 'delete',
+          unit_id: unitId,
+        },
+      });
 
       if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization-tree'] });
       queryClient.invalidateQueries({ queryKey: ['units'] });
       toast.success('Đã xóa đơn vị');
+    },
+    onError: (error) => {
+      toast.error('Lỗi: ' + error.message);
+    },
+  });
+}
+
+export function useAssignUnitManager() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ unitId, userId }: { unitId: string; userId: string | null }) => {
+      const { data, error } = await supabase.functions.invoke('manage-units', {
+        body: {
+          action: 'assign_manager',
+          unit_id: unitId,
+          user_id: userId,
+        },
+      });
+
+      if (error) throw error;
+      if (data.error) throw new Error(data.error);
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization-tree'] });
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success('Đã phân công quản lý đơn vị');
     },
     onError: (error) => {
       toast.error('Lỗi: ' + error.message);

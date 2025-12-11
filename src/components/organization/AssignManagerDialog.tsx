@@ -17,8 +17,8 @@ import {
 } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Loader2, User } from 'lucide-react';
-import { useUsers, useUpdateUser } from '@/hooks/useUsers';
-import { UnitWithHierarchy } from '@/hooks/useOrganization';
+import { useUsers } from '@/hooks/useUsers';
+import { UnitWithHierarchy, useAssignUnitManager } from '@/hooks/useOrganization';
 
 interface AssignManagerDialogProps {
   unit: UnitWithHierarchy | null;
@@ -29,7 +29,7 @@ interface AssignManagerDialogProps {
 export function AssignManagerDialog({ unit, open, onOpenChange }: AssignManagerDialogProps) {
   const [selectedUserId, setSelectedUserId] = useState<string>('none');
   const { data: users } = useUsers();
-  const updateUser = useUpdateUser();
+  const assignManager = useAssignUnitManager();
 
   // Filter users who can be unit managers (either already unit_manager or sales)
   const eligibleUsers = users?.filter(
@@ -48,25 +48,10 @@ export function AssignManagerDialog({ unit, open, onOpenChange }: AssignManagerD
     if (!unit) return;
 
     try {
-      // If selecting a new manager
-      if (selectedUserId !== 'none') {
-        // Update the selected user to be unit_manager and assign to this unit
-        await updateUser.mutateAsync({
-          id: selectedUserId,
-          role: 'unit_manager',
-          unit_id: unit.id,
-        });
-      }
-
-      // If removing manager (selecting none) and there was a previous manager
-      if (selectedUserId === 'none' && unit.manager) {
-        // Demote the previous manager to sales
-        await updateUser.mutateAsync({
-          id: unit.manager.id,
-          role: 'sales',
-        });
-      }
-
+      await assignManager.mutateAsync({
+        unitId: unit.id,
+        userId: selectedUserId === 'none' ? null : selectedUserId,
+      });
       onOpenChange(false);
     } catch (error) {
       // Error handled by mutation
@@ -115,8 +100,8 @@ export function AssignManagerDialog({ unit, open, onOpenChange }: AssignManagerD
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             Hủy
           </Button>
-          <Button onClick={handleSave} disabled={updateUser.isPending}>
-            {updateUser.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+          <Button onClick={handleSave} disabled={assignManager.isPending}>
+            {assignManager.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             Lưu
           </Button>
         </DialogFooter>

@@ -1,1 +1,7 @@
 project_id = "agujpokcyruoqhptsefr"
+
+[functions.manage-users]
+verify_jwt = false
+
+[functions.manage-units]
+verify_jwt = false
