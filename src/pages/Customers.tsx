@@ -107,7 +107,6 @@ const formatCurrency = (value: number) => {
 type ViewMode = 'table' | 'list';
 
 export default function Customers() {
-  const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [searchQuery, setSearchQuery] = useState('');
   const [sourceFilter, setSourceFilter] = useState<string>('all');
@@ -120,10 +119,6 @@ export default function Customers() {
       setViewMode('list');
     }
   }, [isMobile]);
-
-  const handleLogout = () => {
-    navigate('/auth');
-  };
 
   const filteredCustomers = mockCustomers.filter(customer => {
     const matchesSearch = 
@@ -301,7 +296,7 @@ export default function Customers() {
   );
 
   return (
-    <DashboardLayout onLogout={handleLogout} userName="Nguyễn Văn A" userRole="unit_manager">
+    <DashboardLayout>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>

@@ -38,10 +38,6 @@ export default function NewOrder() {
     notes: '',
   });
 
-  const handleLogout = () => {
-    navigate('/auth');
-  };
-
   // Check if phone exists in database
   useEffect(() => {
     if (formData.phone.length >= 10) {
@@ -98,7 +94,7 @@ export default function NewOrder() {
     : Object.entries(CUSTOMER_SOURCE_LABELS);
 
   return (
-    <DashboardLayout onLogout={handleLogout} userName="Nguyễn Văn A" userRole="sales">
+    <DashboardLayout>
       {/* Header */}
       <div className="flex items-center gap-4 mb-8">
         <Button variant="ghost" size="icon" onClick={() => navigate('/orders')}>

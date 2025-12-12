@@ -77,20 +77,15 @@ const comparisonData = [
 ];
 
 export default function Reports() {
-  const navigate = useNavigate();
   const [periodFilter, setPeriodFilter] = useState<'day' | 'week' | 'month'>('day');
   const [dateRange, setDateRange] = useState<'this_month' | 'last_month' | 'this_year' | 'custom'>('this_month');
-
-  const handleLogout = () => {
-    navigate('/auth');
-  };
 
   const currentRevenue = comparisonData[0].revenue;
   const previousRevenue = comparisonData[1].revenue;
   const revenueGrowth = ((currentRevenue - previousRevenue) / previousRevenue) * 100;
 
   return (
-    <DashboardLayout onLogout={handleLogout} userName="Nguyễn Văn A" userRole="unit_manager">
+    <DashboardLayout>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>

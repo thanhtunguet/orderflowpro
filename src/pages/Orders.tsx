@@ -70,10 +70,6 @@ export default function Orders() {
     }
   }, [isMobile]);
 
-  const handleLogout = () => {
-    navigate('/auth');
-  };
-
   const filteredOrders = mockOrders.filter(order => {
     const matchesSearch = 
       order.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -86,7 +82,7 @@ export default function Orders() {
   });
 
   return (
-    <DashboardLayout onLogout={handleLogout} userName="Nguyễn Văn A" userRole="unit_manager">
+    <DashboardLayout>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>
