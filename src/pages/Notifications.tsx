@@ -114,12 +114,7 @@ const getNotificationColor = (type: Notification['type']) => {
 };
 
 export default function Notifications() {
-  const navigate = useNavigate();
   const [notifications, setNotifications] = useState<Notification[]>(mockNotifications);
-
-  const handleLogout = () => {
-    navigate('/auth');
-  };
 
   const unreadCount = notifications.filter(n => !n.isRead).length;
 
@@ -145,7 +140,7 @@ export default function Notifications() {
   });
 
   return (
-    <DashboardLayout onLogout={handleLogout} userName="Nguyễn Văn A" userRole="unit_manager">
+    <DashboardLayout>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
         <div>

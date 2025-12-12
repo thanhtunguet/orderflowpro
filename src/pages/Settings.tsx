@@ -20,7 +20,6 @@ import { User, Bell, Shield, Palette, Database, Save, Mail, Phone, Building } fr
 import { toast } from 'sonner';
 
 export default function Settings() {
-  const navigate = useNavigate();
   const [isLoading, setIsLoading] = useState(false);
   const [profileData, setProfileData] = useState({
     fullName: 'Nguyễn Văn A',
@@ -48,10 +47,6 @@ export default function Settings() {
     refreshInterval: 30,
   });
 
-  const handleLogout = () => {
-    navigate('/auth');
-  };
-
   const handleSaveProfile = async () => {
     setIsLoading(true);
     setTimeout(() => {
@@ -77,7 +72,7 @@ export default function Settings() {
   };
 
   return (
-    <DashboardLayout onLogout={handleLogout} userName={profileData.fullName} userRole={profileData.role}>
+    <DashboardLayout>
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-foreground">Cài đặt</h1>
